@@ -5,7 +5,7 @@
   "description": "API monitoring platform",
   "packageManager": "pnpm@10.27.0",
   "scripts": {
-    "dev": "node scripts/dev.mjs",
+    "dev": "docker compose -f docker/docker-compose.yml up -d && pnpm --parallel --filter api --filter web dev",
     "build": "pnpm --filter api build && pnpm --filter web build",
     "lint": "pnpm --filter web lint",
     "typecheck": "pnpm --filter api typecheck && pnpm --filter web typecheck"
