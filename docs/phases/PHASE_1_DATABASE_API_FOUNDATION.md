@@ -305,6 +305,23 @@ Generated migration files should be committed to the repository so a fresh envir
 
 Do not rely on manually editing the database as the long-term schema-management mechanism.
 
+### Database Evolution Strategy
+
+The initial database model should remain intentionally small and focused on current product requirements.
+
+The schema is expected to evolve as real product requirements emerge. New features should be introduced through explicit, versioned Drizzle migrations rather than speculative tables or fields being added in advance.
+
+When a new requirement affects the database:
+
+1. Evaluate whether the existing schema can support it.
+2. Extend the schema only as required.
+3. Generate an explicit migration.
+4. Preserve existing data whenever possible.
+5. Verify the migration against a representative database state.
+6. Commit the migration together with the schema change.
+
+Database simplicity in an early phase must not be treated as a limitation on future functionality. Schema evolution is an expected part of the project lifecycle.
+
 ---
 
 ## Configuration Strategy
@@ -398,6 +415,7 @@ Run the full project verification suite and test the database from a clean local
 10. **Do not introduce microservices or workers during Phase 1.**
 11. **Do not change frontend behavior unless required for Phase 1 integration.**
 12. **Do not introduce a second ORM or validation library.**
+13. **Prefer evolving the database through explicit migrations over speculative schema design.**
 
 ---
 
@@ -473,7 +491,9 @@ This section should be updated during implementation with concrete decisions, fi
 
 ### Decisions
 
-_No implementation decisions recorded yet._
+- The Phase 1 database will start with only `users`, `monitors`, and `monitor_results`.
+- Future database capabilities will be added when actual product requirements emerge, using explicit Drizzle migrations.
+- We will avoid speculative fields and tables unless there is a concrete current requirement for them.
 
 ### Problems Encountered
 
