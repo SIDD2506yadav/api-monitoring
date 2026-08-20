@@ -43,15 +43,15 @@ Phase 1 introduces persistent application data, a structured API architecture, d
 - [x] Environment validation implemented
 - [x] Temporary database connectivity endpoint verified and removed after use
 - [x] API and database package typechecking verified
-
-### Remaining
-
 - [x] Finalize API response conventions
 - [x] Add explicit 404 handling
 - [x] Implement graceful server shutdown
 - [x] Implement database pool shutdown
-- [ ] Fix workspace package production build
-- [ ] Establish API testing foundation
+- [x] Fix workspace package production build
+- [x] Establish API testing foundation
+
+### Remaining
+
 - [ ] Review database constraints and indexes against expected access patterns
 - [ ] Review timestamp/deletion strategies
 - [ ] Review TypeScript/build/lint configuration
@@ -61,6 +61,8 @@ Phase 1 introduces persistent application data, a structured API architecture, d
 - [ ] Mark Phase 1 complete
 
 ---
+
+Tests should exercise application behavior through HTTP-level requests using Supertest. Middleware that does not currently have a production endpoint may be tested through a minimal test-only Express application rather than adding temporary production routes.
 
 # 1. Scope
 

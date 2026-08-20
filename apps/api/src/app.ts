@@ -4,7 +4,7 @@ import { errorHandler } from "./middleware/error-handler";
 import { router } from "./routes";
 import { ApiError } from "./errors/api-error";
 
-const app = express();
+export const app = express();
 
 app.use(cors());
 app.use(express.json());
@@ -16,5 +16,3 @@ app.use((_req, _res, next) => {
 });
 
 app.use(errorHandler);
-
-export { app };
