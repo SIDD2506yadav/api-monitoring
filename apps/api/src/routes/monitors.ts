@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { validateBody } from "../middleware/validate";
 import { createMonitorSchema } from "../schemas/monitor";
-import { createMonitor } from "../repositories/monitor.repository";
+import { createMonitorService } from "../services/monitor.service";
 
 const monitorsRouter = Router();
 
@@ -10,7 +10,7 @@ monitorsRouter.post(
   validateBody(createMonitorSchema),
   async (req, res, next) => {
     try {
-      const monitor = await createMonitor(req.body);
+      const monitor = await createMonitorService(req.body);
 
       res.status(201).json({
         data: monitor,
