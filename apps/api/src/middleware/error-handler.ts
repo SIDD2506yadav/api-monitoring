@@ -1,5 +1,6 @@
 import type { ErrorRequestHandler } from "express";
 import { ZodError } from "zod";
+import { ApiError } from "../errors/api-error";
 
 export const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
   if (err instanceof ZodError) {
@@ -8,6 +9,17 @@ export const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
         code: "VALIDATION_ERROR",
         message: "Request validation failed",
         details: err.flatten().fieldErrors,
+      },
+    });
+
+    return;
+  }
+
+  if (err instanceof ApiError) {
+    res.status(err.statusCode).json({
+      error: {
+        code: err.code,
+        message: err.message,
       },
     });
 

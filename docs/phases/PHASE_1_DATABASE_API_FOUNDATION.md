@@ -46,10 +46,11 @@ Phase 1 introduces persistent application data, a structured API architecture, d
 
 ### Remaining
 
-- [ ] Finalize API response conventions
-- [ ] Add explicit 404 handling
-- [ ] Implement graceful server shutdown
-- [ ] Implement database pool shutdown
+- [x] Finalize API response conventions
+- [x] Add explicit 404 handling
+- [x] Implement graceful server shutdown
+- [x] Implement database pool shutdown
+- [ ] Fix workspace package production build
 - [ ] Establish API testing foundation
 - [ ] Review database constraints and indexes against expected access patterns
 - [ ] Review timestamp/deletion strategies
