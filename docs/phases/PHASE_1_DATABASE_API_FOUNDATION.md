@@ -2,91 +2,486 @@
 
 ## Status
 
-🟡 **Planned / Not Started**
+🟡 **In Progress**
+
+## Branch
+
+`feat/phase-1-database-api-foundation`
 
 ## Goal
 
 Build the first real backend foundation of the API Monitoring SaaS on top of the completed Phase 0 infrastructure.
 
-Phase 1 introduces persistent application data, a structured API architecture, database migrations, validation, and centralized error handling. It should leave the project ready for authentication and monitor CRUD in the following phases without prematurely implementing those features.
+Phase 1 introduces persistent application data, a structured API architecture, database migrations, validation, centralized error handling, and a clean database access boundary. It should leave the project ready for authentication and monitor CRUD in later phases without prematurely implementing those features.
 
 ---
 
-## Starting Point
+## Phase 1 Progress
 
-Phase 0 is complete. The repository currently has:
+### Completed
 
-- pnpm monorepo/workspace
-- React + Vite frontend
-- Express API
-- TypeScript
-- Docker Compose
-- PostgreSQL development service
-- Redis development service
-- `/health` API endpoint
-- Working development, build, lint, and typecheck workflows
+- [x] Drizzle ORM introduced
+- [x] PostgreSQL connection configured
+- [x] `packages/database` established as the shared database package
+- [x] Initial database schema created
+- [x] `users` table created
+- [x] `monitors` table created
+- [x] `monitor_results` table created
+- [x] Primary keys and relationships defined
+- [x] Initial indexes defined
+- [x] Drizzle migration generated
+- [x] Initial migration applied successfully
+- [x] Database connectivity verified from the API
+- [x] API application/server responsibilities separated
+- [x] Centralized API configuration established
+- [x] Route organization established
+- [x] Database access boundary established
+- [x] Centralized error handling implemented
+- [x] Request validation with Zod implemented
+- [x] `/health` endpoint preserved and verified
+- [x] Root `.env` and `.env.example` established
+- [x] Environment validation implemented
+- [x] Temporary database connectivity endpoint verified and removed after use
+- [x] API and database package typechecking verified
 
-The database package exists as a workspace location but application database access/schema/migrations have not yet been introduced.
+### Remaining
 
----
-
-## Scope
-
-### Database
-
-- [ ] Introduce Drizzle ORM
-- [ ] Configure PostgreSQL connection
-- [ ] Establish `packages/database` as the shared database package
-- [ ] Define initial database schema
-- [ ] Add `users` table
-- [ ] Add `monitors` table
-- [ ] Add `monitor_results` table
-- [ ] Define primary keys and relationships
-- [ ] Define required indexes based on expected access patterns
-- [ ] Configure Drizzle migrations
-- [ ] Generate and apply initial migration
-- [ ] Verify database connectivity
-
-### API Architecture
-
-- [ ] Separate Express app creation from server startup
-- [ ] Establish API configuration module
-- [ ] Establish route organization
-- [ ] Establish service layer conventions where appropriate
-- [ ] Establish database access boundary
-- [ ] Add centralized error-handling middleware
-- [ ] Add request validation with Zod
-- [ ] Define consistent API error responses
-- [ ] Preserve `/health` endpoint
-- [ ] Add database health/readiness verification
-
-### Configuration & Environment
-
-- [ ] Define required Phase 1 environment variables
-- [ ] Validate required environment configuration at startup
-- [ ] Keep secrets out of source control
-- [ ] Keep `.env.example` synchronized with required variables
-
-### Verification
-
-- [ ] PostgreSQL connection works from the application
-- [ ] Initial migration applies successfully
-- [ ] Database schema matches the intended model
-- [ ] API starts with the new architecture
-- [ ] `/health` continues to work
-- [ ] Database health check works
-- [ ] Invalid request payloads return consistent validation errors
-- [ ] Unexpected API errors are handled centrally
-- [ ] `pnpm build` passes
-- [ ] `pnpm typecheck` passes
-- [ ] `pnpm lint` passes
-- [ ] Development workflow continues to work
+- [ ] Finalize API response conventions
+- [ ] Add explicit 404 handling
+- [ ] Implement graceful server shutdown
+- [ ] Implement database pool shutdown
+- [ ] Establish API testing foundation
+- [ ] Review database constraints and indexes against expected access patterns
+- [ ] Review timestamp/deletion strategies
+- [ ] Review TypeScript/build/lint configuration
+- [ ] Run final Phase 1 verification suite
+- [ ] Complete final architecture review
+- [ ] Update this document with final verification results
+- [ ] Mark Phase 1 complete
 
 ---
 
-## Out of Scope
+# 1. Scope
 
-Do **not** implement the following in Phase 1:
+## Database
+
+Phase 1 establishes the initial persistent data model using PostgreSQL and Drizzle ORM.
+
+The initial model intentionally contains only three tables:
+
+```text
+users
+  │
+  │ one-to-many
+  ▼
+monitors
+  │
+  │ one-to-many
+  ▼
+monitor_results
+```
+
+### `users`
+
+Purpose:
+
+- Stable user identity
+- Basic account metadata
+- Ownership boundary for monitors
+
+Current fields include:
+
+- UUID primary key
+- Unique email
+- Created timestamp
+- Updated timestamp
+
+Authentication behavior does not belong to Phase 1.
+
+### `monitors`
+
+Purpose:
+
+Store API monitoring configurations that will eventually be executed by the monitoring engine.
+
+Current concepts include:
+
+- User ownership
+- Monitor name
+- Target URL
+- HTTP method
+- Monitoring interval
+- Timeout
+- Expected status code
+- Active state
+- Created/updated timestamps
+
+An index exists on `user_id` because monitor lookup by owner is an expected access pattern.
+
+### `monitor_results`
+
+Purpose:
+
+Store the outcome of monitor executions for future uptime and latency analytics.
+
+Current concepts include:
+
+- Monitor relationship
+- Success/failure state
+- HTTP status code
+- Response latency
+- Error message
+- Execution timestamp
+
+An index exists on `(monitor_id, checked_at)` to support historical result queries by monitor and time.
+
+---
+
+# 2. Database Package
+
+Database functionality is isolated in:
+
+```text
+packages/database/
+```
+
+Current structure:
+
+```text
+packages/database/
+├── src/
+│   ├── client.ts
+│   ├── index.ts
+│   └── schema/
+│       ├── users.ts
+│       ├── monitors.ts
+│       ├── monitor-results.ts
+│       └── index.ts
+├── drizzle/
+│   ├── migration files
+│   └── meta/
+├── drizzle.config.ts
+├── package.json
+└── tsconfig.json
+```
+
+## Database ownership rule
+
+The `@api-monitoring/database` package owns:
+
+- PostgreSQL connectivity
+- `pg`
+- Drizzle ORM
+- Database schemas
+- Database migrations
+- Database-specific infrastructure
+
+The API consumes the database package rather than creating PostgreSQL/Drizzle infrastructure itself.
+
+Preferred dependency direction:
+
+```text
+apps/api
+    │
+    │ @api-monitoring/database
+    ▼
+packages/database
+    │
+    ├── Drizzle
+    ├── pg
+    └── PostgreSQL
+```
+
+The API creates one shared database instance from the database package rather than opening connections per request.
+
+---
+
+# 3. Database Schema Organization
+
+Schemas are grouped by responsibility under:
+
+```text
+packages/database/src/schema/
+```
+
+Related schema definitions should remain in separate files rather than being placed into one large schema file.
+
+The schema index acts as the public schema export.
+
+This organization should continue as the database grows.
+
+Do not create speculative schema files for features that do not yet exist.
+
+---
+
+# 4. Migration Strategy
+
+Drizzle migrations are stored in:
+
+```text
+packages/database/drizzle/
+```
+
+Generated migration files and migration metadata are committed to Git.
+
+The migration workflow is:
+
+```text
+Schema change
+    ↓
+Generate migration
+    ↓
+Review generated SQL
+    ↓
+Apply migration locally
+    ↓
+Verify database
+    ↓
+Commit schema + migration
+```
+
+Never modify an already-applied migration to represent a new schema change.
+
+Instead, create a new migration.
+
+## Database evolution strategy
+
+The initial database is intentionally small. Future requirements are expected to evolve the schema through explicit, versioned migrations.
+
+When a new requirement affects the database:
+
+1. Evaluate whether the existing schema can support it.
+2. Extend the schema only as required.
+3. Generate an explicit migration.
+4. Preserve existing data whenever possible.
+5. Verify the migration against a representative database state.
+6. Commit the migration together with the schema change.
+
+Database simplicity in an early phase is not a limitation on future functionality. Schema evolution is expected.
+
+---
+
+# 5. API Architecture
+
+The API has been moved away from a single-file structure toward clear responsibility boundaries.
+
+Current structure:
+
+```text
+apps/api/src/
+├── config/
+│   └── env.ts
+├── database/
+│   └── index.ts
+├── middleware/
+│   ├── error-handler.ts
+│   └── validate.ts
+├── routes/
+│   ├── health.ts
+│   └── index.ts
+├── app.ts
+└── server.ts
+```
+
+## `app.ts`
+
+Responsibilities:
+
+- Create the Express application
+- Register global middleware
+- Register routes
+- Register error handling
+
+`app.ts` does not start the HTTP server.
+
+## `server.ts`
+
+Responsibilities:
+
+- Load the application
+- Start the HTTP server
+- Use the configured port
+
+Graceful shutdown remains a remaining Phase 1 task.
+
+## Routes
+
+Routes are organized under:
+
+```text
+apps/api/src/routes/
+```
+
+The route registry composes the individual route modules.
+
+Current permanent route:
+
+```text
+GET /health
+```
+
+Temporary database connectivity verification was performed through a separate endpoint and removed after successful verification.
+
+---
+
+# 6. Configuration Strategy
+
+Environment configuration is centralized in:
+
+```text
+apps/api/src/config/env.ts
+```
+
+The API validates required environment variables using Zod.
+
+Application code should consume the typed configuration object rather than repeatedly accessing `process.env`.
+
+Preferred pattern:
+
+```text
+process.env
+    ↓
+configuration module
+    ↓
+validated env object
+    ↓
+application
+```
+
+Current required infrastructure configuration includes:
+
+- `NODE_ENV`
+- `PORT`
+- `DATABASE_URL`
+- `REDIS_URL`
+
+The root `.env` is local-only and must not be committed.
+
+The `.env.example` file is committed and should remain synchronized with required variables.
+
+---
+
+# 7. Validation Strategy
+
+Zod is used for runtime validation at API boundaries.
+
+The intended flow is:
+
+```text
+HTTP Request
+     ↓
+Parse
+     ↓
+Validate with Zod
+     ↓
+Valid → route/service
+Invalid → structured 4xx response
+```
+
+Validation should happen before application/business logic executes.
+
+Validation middleware should remain reusable and focused on request-boundary concerns.
+
+Do not introduce additional validation libraries.
+
+---
+
+# 8. Error Handling Strategy
+
+The API uses centralized Express error handling.
+
+Routes should pass errors into the central handler rather than inventing individual response formats.
+
+The error handler is responsible for:
+
+- Handling known application errors
+- Handling validation errors
+- Returning consistent JSON responses
+- Avoiding leakage of internal implementation details
+- Handling unexpected errors safely
+
+Conceptually:
+
+```text
+Route
+  ↓
+Error
+  ↓
+next(error)
+  ↓
+Central Error Handler
+  ↓
+Consistent API Response
+```
+
+Final API response conventions remain to be documented and standardized before Phase 1 is completed.
+
+---
+
+# 9. Database Integration
+
+The API consumes the shared workspace package:
+
+```text
+@api-monitoring/database
+```
+
+The API database boundary is:
+
+```text
+apps/api/src/database/index.ts
+```
+
+It creates the shared database client and pool using the validated `DATABASE_URL`.
+
+The API should not bypass this boundary to instantiate Drizzle or PostgreSQL directly.
+
+## Connectivity verification
+
+Database connectivity was verified successfully through the API.
+
+A temporary database route returned a successful response, confirming the full path:
+
+```text
+API
+ ↓
+@api-monitoring/database
+ ↓
+Drizzle
+ ↓
+PostgreSQL
+```
+
+After verification, the temporary route and related temporary code were removed.
+
+A permanent database readiness/health endpoint is **not yet implemented** and remains a Phase 1 task if required by the final health/readiness design.
+
+---
+
+# 10. Important Engineering Rules
+
+1. **Do not implement future-phase features early.**
+2. **Keep database access inside `packages/database`.**
+3. **Do not scatter `process.env` access throughout the application.**
+4. **Validate external input at API boundaries.**
+5. **Use centralized error handling.**
+6. **Keep routes/controllers thin.**
+7. **Do not put business logic directly into Express middleware.**
+8. **Keep migrations committed and reproducible.**
+9. **Prefer small, focused modules over premature abstraction.**
+10. **Do not introduce microservices or workers during Phase 1.**
+11. **Do not change frontend behavior unless required for Phase 1 integration.**
+12. **Do not introduce a second ORM or validation library.**
+13. **Prefer evolving the database through explicit migrations over speculative schema design.**
+14. **Group related files by responsibility as the application grows.**
+15. **Do not create folders or abstractions only for hypothetical future features.**
+16. **Temporary debugging/connectivity code must be removed after verification unless it has a legitimate permanent purpose.**
+
+---
+
+# 11. Out of Scope
+
+Do not implement the following as part of Phase 1:
 
 - Authentication
 - Password hashing
@@ -110,409 +505,233 @@ These belong to later phases in the execution plan.
 
 ---
 
-## Proposed Database Model
+# 12. Verification Completed So Far
 
-The initial application model is intentionally small:
+The following have been verified during Phase 1 implementation:
+
+- [x] PostgreSQL container is running
+- [x] Redis container is running
+- [x] Initial migration generated
+- [x] Initial migration applied
+- [x] Three database tables created
+- [x] Database package typechecks
+- [x] API package typechecks after resolving the Drizzle dependency duplication issue
+- [x] API starts successfully
+- [x] `/health` works
+- [x] Request validation works
+- [x] Centralized error route/handling works
+- [x] Database connectivity through the API works
+- [x] Temporary database connectivity route was removed after verification
+
+---
+
+# 13. Remaining Phase 1 Work
+
+## API
+
+- [ ] Define final API response conventions
+- [ ] Add explicit 404 handling
+- [ ] Implement graceful server shutdown
+- [ ] Implement database pool shutdown
+- [ ] Establish API test structure and initial tests
+
+## Database
+
+- [ ] Review schema constraints
+- [ ] Review indexes against expected access patterns
+- [ ] Confirm timestamp strategy
+- [ ] Confirm deletion/cascade strategy
+- [ ] Review database pool configuration
+- [ ] Document migration workflow
+
+## Project Quality
+
+- [ ] Run full `pnpm build`
+- [ ] Run full `pnpm typecheck`
+- [ ] Run full `pnpm lint`
+- [ ] Review TypeScript configuration
+- [ ] Review formatting/linting configuration
+- [ ] Review CI expectations
+
+## Finalization
+
+- [ ] Perform final Phase 1 architecture review
+- [ ] Update this document with final verification results
+- [ ] Confirm no Phase 2+ functionality has slipped into the branch
+- [ ] Mark Phase 1 complete
+
+---
+
+# 14. Implementation Sequence From Here
+
+The remaining work should proceed in this order:
 
 ```text
-users
-  │
-  │ one-to-many
-  ▼
-monitors
-  │
-  │ one-to-many
-  ▼
-monitor_results
+1. API response conventions
+          ↓
+2. 404 handling
+          ↓
+3. Graceful server shutdown
+          ↓
+4. Database pool shutdown
+          ↓
+5. API testing foundation
+          ↓
+6. Database/schema review
+          ↓
+7. Full build/typecheck/lint verification
+          ↓
+8. Final architecture review
+          ↓
+9. Update Phase 1 documentation
+          ↓
+10. Mark Phase 1 complete
 ```
 
-### `users`
-
-Represents an application user.
-
-Expected responsibilities:
-
-- Stable user identity
-- Basic account metadata
-- Ownership boundary for monitors
-
-Authentication-specific fields should only be added where required by the Phase 1 data model. Authentication behavior itself belongs to Phase 2.
-
-### `monitors`
-
-Represents an API endpoint/configuration that will eventually be executed by the monitoring engine.
-
-The initial schema should capture the configuration required for future monitor execution without implementing execution itself.
-
-Expected concepts include:
-
-- Owner/user relationship
-- Monitor name
-- Target URL
-- HTTP method
-- Monitoring interval
-- Timeout
-- Expected response configuration/status
-- Active/enabled state
-- Created/updated timestamps
-
-The exact schema should be finalized against the execution plan and actual application requirements before implementation.
-
-### `monitor_results`
-
-Stores the outcome of a monitor execution for future uptime and latency analytics.
-
-Expected concepts include:
-
-- Monitor relationship
-- Success/failure state
-- HTTP status when available
-- Response latency
-- Error information when applicable
-- Execution timestamp
-
-The schema should be designed for the access patterns expected in later monitoring and analytics phases.
+Do not start Phase 2 until the Phase 1 completion criteria have been reviewed.
 
 ---
 
-## Proposed API Architecture
+# 15. Definition of Done
 
-The API should move from the current single-file server toward a clear separation of concerns:
+Phase 1 is complete when:
 
-```text
-HTTP Request
-     │
-     ▼
-Express App
-     │
-     ├── Middleware
-     │     ├── Request parsing
-     │     ├── Validation
-     │     └── Error handling
-     │
-     ▼
-Routes / Controllers
-     │
-     ▼
-Services
-     │
-     ▼
-Database Package
-     │
-     ▼
-PostgreSQL
-```
+### Database
 
-### Responsibilities
+- [x] Database package is implemented
+- [x] Drizzle is configured
+- [x] PostgreSQL connection works
+- [x] Initial schema is implemented
+- [x] Initial migration exists and has been applied
+- [x] `users`, `monitors`, and `monitor_results` exist in PostgreSQL
+- [x] API can consume the database package
 
-**`server.ts`**
+### API
 
-- Load startup configuration as required
-- Create/start the HTTP server
-- Handle graceful shutdown concerns when needed
+- [x] Express application exists
+- [x] `app.ts` and `server.ts` are separated
+- [x] Routes are organized
+- [x] `/health` works
+- [x] Centralized error handling exists
+- [x] Request validation exists
+- [x] Database integration exists
+- [ ] API response conventions are finalized
+- [ ] 404 handling is implemented
+- [ ] Graceful shutdown is implemented
+- [ ] Database pool shutdown is implemented
+- [ ] API testing foundation is established
 
-**`app.ts`**
+### Configuration
 
-- Create and configure the Express application
-- Register middleware
-- Register routes
-- Register error handling
+- [x] Environment configuration exists
+- [x] Environment variables are validated
+- [x] `.env.example` exists
+- [x] Secrets are excluded from Git
 
-**Routes/controllers**
+### Quality
 
-- Translate HTTP requests into application operations
-- Perform request-level validation
-- Return HTTP responses
-- Avoid embedding database implementation details
-
-**Services**
-
-- Hold application/business operations where complexity warrants a service boundary
-- Coordinate database operations
-- Remain independent of Express request/response objects
-
-**Database package**
-
-- Own PostgreSQL connection/client setup
-- Own Drizzle configuration/schema
-- Expose database access to the API through a stable package boundary
+- [ ] Full build passes
+- [ ] Full typecheck passes
+- [ ] Full lint passes
+- [ ] Final architecture review completed
 
 ---
 
-## Validation Strategy
+# 16. Architectural Decisions
 
-Use **Zod** for runtime validation at API boundaries.
+## Dedicated Database Package
 
-Validation should happen before application logic executes.
+Database functionality is isolated in `packages/database`.
 
-Conceptually:
+**Reason:**
 
-```text
-HTTP Request
-     ↓
-Parse
-     ↓
-Validate with Zod
-     ↓
-Valid → route/service
-Invalid → structured 4xx response
-```
+- Keeps database infrastructure separate from HTTP concerns
+- Allows future packages/apps to reuse database functionality
+- Prevents the API from owning database connection setup
+- Creates a clear dependency boundary
 
-Validation errors should not leak internal implementation details.
+## Separate Application and Server
 
----
+`app.ts` constructs the Express application while `server.ts` starts the server.
 
-## Error Handling Strategy
+**Reason:**
 
-The API should use centralized error handling rather than implementing ad-hoc error responses in every route.
+- Clear responsibilities
+- Easier testing
+- Prevents server startup from being coupled to application construction
 
-A consistent error response should provide enough information for the frontend/API consumer to understand the failure while avoiding sensitive internal details.
+## Centralized Environment Validation
 
-Conceptually:
+Environment variables are validated once through Zod.
 
-```json
-{
-  "error": {
-    "code": "VALIDATION_ERROR",
-    "message": "Request validation failed"
-  }
-}
-```
+**Reason:**
 
-The exact response contract should be finalized during implementation and kept consistent across the API.
+- Fail fast on invalid configuration
+- Provides typed configuration
+- Prevents scattered `process.env` usage
 
----
+## Centralized Error Handling
 
-## Database Migration Strategy
+Errors flow through one Express error handler.
 
-Drizzle migrations will be the source of truth for schema changes.
+**Reason:**
 
-The workflow should be:
+- Consistent API responses
+- Prevents internal errors from leaking to clients
+- Makes future application-specific errors easier to support
 
-```text
-Schema change
-    ↓
-Drizzle migration generation
-    ↓
-Migration files committed
-    ↓
-Migration applied to local PostgreSQL
-    ↓
-Application uses migrated schema
-```
+## Reusable Request Validation Middleware
 
-Generated migration files should be committed to the repository so a fresh environment can reproduce the database schema.
+Zod validation is implemented as middleware.
 
-Do not rely on manually editing the database as the long-term schema-management mechanism.
+**Reason:**
 
-### Database Evolution Strategy
+- Keeps validation separate from route logic
+- Allows schemas to be reused
+- Establishes a consistent validation pattern
 
-The initial database model should remain intentionally small and focused on current product requirements.
+## Route Organization
 
-The schema is expected to evolve as real product requirements emerge. New features should be introduced through explicit, versioned Drizzle migrations rather than speculative tables or fields being added in advance.
+Routes are separated from `app.ts`.
 
-When a new requirement affects the database:
+**Reason:**
 
-1. Evaluate whether the existing schema can support it.
-2. Extend the schema only as required.
-3. Generate an explicit migration.
-4. Preserve existing data whenever possible.
-5. Verify the migration against a representative database state.
-6. Commit the migration together with the schema change.
+- Prevents `app.ts` from becoming a large file
+- Makes future feature modules easier to introduce
+- Establishes a predictable API structure
 
-Database simplicity in an early phase must not be treated as a limitation on future functionality. Schema evolution is an expected part of the project lifecycle.
+## Avoid Premature Abstractions
+
+The project does not introduce controllers, services, repositories, custom error classes, dependency injection, or generic CRUD abstractions unless actual complexity requires them.
+
+**Reason:**
+
+The project is still in its foundation stage. Abstractions should solve demonstrated problems rather than hypothetical future ones.
 
 ---
 
-## Configuration Strategy
+# 17. Notes for Future Phases
 
-Phase 1 should establish explicit configuration rather than allowing environment access to be scattered throughout application code.
+Whenever an architectural decision, constraint, important implementation lesson, or database evolution rule is discovered, update this document or the main execution plan rather than leaving the decision only in chat history.
 
-Preferred conceptual structure:
+The goal is for a future developer or coding agent to be able to read the project documentation and understand:
 
-```text
-process.env
-    ↓
-configuration module
-    ↓
-validated application configuration
-    ↓
-API / database / infrastructure
-```
-
-This makes missing or invalid configuration fail early and makes dependencies easier to understand and test.
+- What was implemented
+- Why it was implemented
+- Which architectural decisions were made
+- Which rules should be followed
+- What remains to be done
+- What has already been verified
+- What is intentionally out of scope
 
 ---
 
-## Implementation Approach
+# 18. Final Status
 
-Phase 1 should be implemented incrementally rather than as one large change.
+🟡 **In Progress**
 
-### Step 1 — Audit
-
-Before changing code:
-
-- Inspect current workspace/package state
-- Inspect existing `packages/database`
-- Inspect API structure
-- Inspect current dependencies
-- Confirm PostgreSQL/Redis environment variables
-- Confirm Phase 0 remains intact
-
-### Step 2 — Database package
-
-- Configure package metadata
-- Install only required database dependencies
-- Configure Drizzle
-- Establish PostgreSQL client
-- Create schema files
-- Export the database interface
-
-### Step 3 — Schema & migrations
-
-- Implement initial schema
-- Add relationships and indexes
-- Generate migration
-- Apply migration locally
-- Verify resulting PostgreSQL schema
-
-### Step 4 — API restructuring
-
-- Separate `app.ts` and `server.ts`
-- Add configuration handling
-- Add route organization
-- Introduce database package dependency
-- Preserve existing `/health`
-
-### Step 5 — Validation & errors
-
-- Add Zod
-- Establish validation conventions
-- Add centralized error middleware
-- Establish API error response shape
-
-### Step 6 — Database health
-
-Extend readiness/health behavior so the API can verify PostgreSQL connectivity without coupling future monitoring logic to the health endpoint.
-
-### Step 7 — Verification
-
-Run the full project verification suite and test the database from a clean local state.
-
----
-
-## Important Engineering Rules
-
-1. **Do not implement future-phase features early.**
-2. **Keep database access inside `packages/database`.**
-3. **Do not scatter `process.env` access throughout the application.**
-4. **Validate external input at API boundaries.**
-5. **Use centralized error handling.**
-6. **Keep routes/controllers thin.**
-7. **Do not put business logic directly into Express middleware.**
-8. **Keep migrations committed and reproducible.**
-9. **Prefer small, focused modules over premature abstraction.**
-10. **Do not introduce microservices or workers during Phase 1.**
-11. **Do not change frontend behavior unless required for Phase 1 integration.**
-12. **Do not introduce a second ORM or validation library.**
-13. **Prefer evolving the database through explicit migrations over speculative schema design.**
-
----
-
-## Expected Result
-
-At the end of Phase 1, the system should look approximately like:
-
-```text
-                         ┌──────────────────┐
-                         │   React / Vite   │
-                         └────────┬─────────┘
-                                  │
-                                  ▼
-                         ┌──────────────────┐
-                         │   Express API    │
-                         │                  │
-                         │ Routes           │
-                         │ Validation       │
-                         │ Error handling   │
-                         │ Configuration    │
-                         └────────┬─────────┘
-                                  │
-                                  ▼
-                         ┌──────────────────┐
-                         │ packages/database│
-                         │                  │
-                         │ Drizzle          │
-                         │ Schema           │
-                         │ DB client        │
-                         └────────┬─────────┘
-                                  │
-                                  ▼
-                         ┌──────────────────┐
-                         │   PostgreSQL     │
-                         └──────────────────┘
-
-                         ┌──────────────────┐
-                         │      Redis       │
-                         │   infrastructure │
-                         └──────────────────┘
-```
-
-Redis remains available as Phase 0 infrastructure but is not required to become part of the application request path during Phase 1.
-
----
-
-## Definition of Done
-
-Phase 1 is complete only when:
-
-- [ ] Database package is implemented
-- [ ] Drizzle is configured
-- [ ] PostgreSQL connection works
-- [ ] Initial schema is implemented
-- [ ] Migrations are generated and reproducible
-- [ ] `users`, `monitors`, and `monitor_results` exist in PostgreSQL
-- [ ] API architecture is separated into appropriate responsibilities
-- [ ] Configuration is centralized and validated
-- [ ] Zod validation is established
-- [ ] Centralized error handling is established
-- [ ] API database health/readiness check works
-- [ ] Phase 0 development workflow still works
-- [ ] `pnpm build` passes
-- [ ] `pnpm typecheck` passes
-- [ ] `pnpm lint` passes
-- [ ] No Phase 2+ functionality has been introduced
-
----
-
-## Implementation Notes
-
-This section should be updated during implementation with concrete decisions, file locations, dependency choices, and deviations from the plan.
-
-### Decisions
-
-- The Phase 1 database will start with only `users`, `monitors`, and `monitor_results`.
-- Future database capabilities will be added when actual product requirements emerge, using explicit Drizzle migrations.
-- We will avoid speculative fields and tables unless there is a concrete current requirement for them.
-
-### Problems Encountered
-
-_No problems recorded yet._
-
-### Verification Results
-
-_Not started._
-
----
-
-## Final Status
-
-🟡 **Planned / Not Started**
-
-### Branch
-
-`feat/phase-1-database-api-foundation`
+Phase 1 database and API foundation is substantially implemented. The remaining work is primarily API hardening, lifecycle management, testing, final quality verification, and architecture review.
 
 ### Next Step
 
-Audit the current repository and dependencies, then begin implementation from the database package foundation.
+Complete the remaining API foundation tasks, beginning with **API response conventions**.
