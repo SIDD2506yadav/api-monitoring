@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import { errorHandler } from "../middleware/error-handler";
 import { validateBody } from "../middleware/validate";
 import { createMonitorSchema } from "../schemas/monitor";
+import { listMonitorsSchema } from "../schemas/monitor";
 
 const testApp = express();
 
@@ -17,7 +18,45 @@ testApp.post("/monitors", validateBody(createMonitorSchema), (_req, res) => {
   });
 });
 
+testApp.get("/monitors", (req, res, next) => {
+  const result = listMonitorsSchema.safeParse({
+    userId: req.query.userId,
+  });
+
+  if (!result.success) {
+    next(result.error);
+    return;
+  }
+
+  res.json({
+    data: [],
+  });
+});
+
 testApp.use(errorHandler);
+
+describe("GET /monitors validation", () => {
+  it("returns an empty list for a valid user ID", async () => {
+    const response = await request(testApp).get("/monitors").query({
+      userId: "550e8400-e29b-41d4-a716-446655440000",
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({
+      data: [],
+    });
+  });
+
+  it("rejects an invalid user ID in the query", async () => {
+    const response = await request(testApp).get("/monitors").query({
+      userId: "not-a-uuid",
+    });
+
+    expect(response.status).toBe(400);
+    expect(response.body.error.code).toBe("VALIDATION_ERROR");
+    expect(response.body.error.message).toBe("Request validation failed");
+  });
+});
 
 describe("POST /monitors validation", () => {
   it("rejects an invalid monitor payload", async () => {

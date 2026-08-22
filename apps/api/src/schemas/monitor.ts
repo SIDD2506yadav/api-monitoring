@@ -13,4 +13,9 @@ export const createMonitorSchema = z.object({
   expectedStatusCode: z.number().int().min(100).max(599),
 });
 
+export const listMonitorsSchema = z.object({
+  userId: z.uuid(),
+});
+
 export type CreateMonitorInput = z.infer<typeof createMonitorSchema>;
+export type ListMonitorsInput = z.infer<typeof listMonitorsSchema>;

@@ -1,20 +1,14 @@
-import { monitors } from "@api-monitoring/database";
+import {
+  createMonitor as createMonitorRecord,
+  listMonitors as listMonitorRecords,
+} from "@api-monitoring/database";
 import { db } from "../database";
-import type { CreateMonitorInput } from "../schemas/monitor";
+import type { CreateMonitorInput, ListMonitorsInput } from "../schemas/monitor";
 
-export async function createMonitor(input: CreateMonitorInput) {
-  const [monitor] = await db
-    .insert(monitors)
-    .values({
-      userId: input.userId,
-      name: input.name,
-      url: input.url,
-      method: input.method,
-      intervalSeconds: input.intervalSeconds,
-      timeoutMs: input.timeoutMs,
-      expectedStatusCode: input.expectedStatusCode,
-    })
-    .returning();
+export function createMonitor(input: CreateMonitorInput) {
+  return createMonitorRecord(db, input);
+}
 
-  return monitor;
+export function listMonitors({ userId }: ListMonitorsInput) {
+  return listMonitorRecords(db, userId);
 }
