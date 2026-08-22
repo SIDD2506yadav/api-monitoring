@@ -35,3 +35,37 @@ export async function createMonitor(
 export async function listMonitors(db: Database, userId: string) {
   return db.select().from(monitors).where(eq(monitors.userId, userId));
 }
+
+export async function deleteMonitor(db: Database, id: string) {
+  const [monitor] = await db
+    .delete(monitors)
+    .where(eq(monitors.id, id))
+    .returning();
+
+  return monitor;
+}
+
+export async function updateMonitor(
+  db: Database,
+  id: string,
+  input: {
+    name?: string;
+    url?: string;
+    method?: string;
+    intervalSeconds?: number;
+    timeoutMs?: number;
+    expectedStatusCode?: number;
+    isActive?: boolean;
+  },
+) {
+  const [monitor] = await db
+    .update(monitors)
+    .set({
+      ...input,
+      updatedAt: new Date(),
+    })
+    .where(eq(monitors.id, id))
+    .returning();
+
+  return monitor;
+}
