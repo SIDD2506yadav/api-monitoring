@@ -1,5 +1,6 @@
 import {
   createMonitor as createMonitorRecord,
+  getMonitor as getMonitorRecord,
   listMonitors as listMonitorRecords,
   deleteMonitor as deleteMonitorRecord,
   updateMonitor as updateMonitorRecord,
@@ -17,6 +18,10 @@ export function createMonitor(input: CreateMonitorInput) {
 
 export function listMonitors({ userId }: ListMonitorsInput) {
   return listMonitorRecords(db, userId);
+}
+
+export function getMonitor(id: string) {
+  return getMonitorRecord(db, id);
 }
 
 export function deleteMonitor(id: string) {

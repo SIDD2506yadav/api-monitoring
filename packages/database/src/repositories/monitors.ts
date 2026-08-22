@@ -36,6 +36,16 @@ export async function listMonitors(db: Database, userId: string) {
   return db.select().from(monitors).where(eq(monitors.userId, userId));
 }
 
+export async function getMonitor(db: Database, id: string) {
+  const [monitor] = await db
+    .select()
+    .from(monitors)
+    .where(eq(monitors.id, id))
+    .limit(1);
+
+  return monitor;
+}
+
 export async function deleteMonitor(db: Database, id: string) {
   const [monitor] = await db
     .delete(monitors)

@@ -5,6 +5,7 @@ import {
   listMonitorsService,
   updateMonitorService,
 } from "../services/monitor.service";
+import { checkMonitorService } from "../services/monitor-execution.service";
 
 export async function createMonitorController(
   req: Request,
@@ -88,6 +89,32 @@ export async function deleteMonitorController(
     }
 
     res.status(204).send();
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function checkMonitorController(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const result = await checkMonitorService(req.params.id as string);
+
+    if (!result) {
+      res.status(404).json({
+        error: {
+          code: "NOT_FOUND",
+          message: "Monitor not found",
+        },
+      });
+      return;
+    }
+
+    res.json({
+      data: result,
+    });
   } catch (error) {
     next(error);
   }

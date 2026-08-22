@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { validateBody } from "../middleware/validate";
 import {
+  checkMonitorController,
   createMonitorController,
   deleteMonitorController,
   listMonitorsController,
@@ -25,5 +26,7 @@ monitorsRouter.patch(
 );
 
 monitorsRouter.delete("/monitors/:id", deleteMonitorController);
+
+monitorsRouter.post("/monitors/:id/check", checkMonitorController);
 
 export { monitorsRouter };

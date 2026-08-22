@@ -41,3 +41,5 @@ export const monitorsRelations = relations(monitors, ({ one }) => ({
     references: [users.id],
   }),
 }));
+
+export type Monitor = typeof monitors.$inferSelect;
